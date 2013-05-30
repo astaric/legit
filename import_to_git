@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+import re, subprocess
+
+def get_svn_log():
+    return subprocess.check_output(['svn', 'log']).split('\n')
+
+def parse_svn_log_data(svn_log):
+    revisions = []
+    rev, author, timestamp, message = None, None, None, ''
+    for line in svn_log:
+        if line.startswith('----------------'):
+            if rev:
+                revisions.append((rev, author, timestamp, message.strip()))
+            rev, author, timestamp, message = None, None, None, ''
+        elif line.startswith('r') and rev == None:
+            tokens =  [token.strip() for token in line.split('|')]
+            rev, author, timestamp, nlines = tokens
+        else:
+            message += line + '\n'
+    revisions.reverse()
+    return revisions
+
+def svn_checkout(revision):
+    subprocess.call(['svn', 'update', '-r', revision])
+
+def git_commit(message, author=None, date=None):
+    git_call = ['git', 'commit', '-a', '-m', message]
+    if author:
+        if '<' not in author:
+            author = '%s <%s>' % (author, author)
+        git_call.extend(['--author', author])
+    if date:
+        git_call.extend(['--date', date])
+    subprocess.call(['git', 'add', '.'])
+    subprocess.call(git_call)
+
+def git_tag(revision):
+    subprocess.call(['git', 'tag', revision])
+
+def git_revision_tags():
+    tags = []
+    for tag in subprocess.check_output(['git', 'tag']).split('\n'):
+        tag = tag.strip()
+        if re.match(r'r\d+', tag):
+            tags.append(tag)
+    return tags
+
+def get_latest_local_revision():
+    try:
+        i = 0
+        while True:
+            tags = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD~%i' % i]).strip().split(" ")
+            if len(tags) == 1 and tags[0].startswith('r'):
+                return tags[0]
+            i += 1
+    except:
+        pass
+
+def add_changes_to_git(revisions):
+    for revision, author, date, message in revisions:
+        svn_checkout(revision)
+        git_commit(message, author, date)
+        git_tag(revision)
+
+def git_fetch(revisions):
+    max_local_revision = get_latest_local_revision()
+    if max_local_revision:
+        rev_iter = iter(revisions)
+        for rev in rev_iter:
+            if rev[0] == max_local_revision:
+                break
+        remote_revisions = list(rev_iter)
+    else:
+        remote_revisions = revisions
+    if remote_revisions:
+        add_changes_to_git(remote_revisions)
+    else:
+        print "Already up to date."
+
+
+if __name__ == '__main__':
+    svn_log = get_svn_log()
+    revision_data = parse_svn_log_data(svn_log)
+    git_fetch(revision_data)

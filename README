@@ -1,0 +1,21 @@
+Legit (Legacy git)
+============
+Legit contains a script that helps you manually synchronize a local git and remote svn repository. It uses subprocess module to call svn and git executables that should be present in your PATH.
+
+The Idea
+--------
+Each svn commits is imported as a single git commit and tagged with the revision number.
+
+The Workflow
+------------
+When import_to_git is run, list of remote and local revisions are generated from results of svn log and git tag accordingly. Then each of the revisions missing in the git repository is fetched with svn update -r and and commited to git with git add . && git commit -a. Author, date and commit mesage are preserved.
+
+Usage
+-----
+Updating:
+Check out your master branch and run git status and svn status to make sure that there are no pending changes. Run import_to_git, which will import new revision to git.
+
+Commiting:
+Do whatever you want with git. I suggest you leave branch master aside and use it to track the svn version of the repository, an do your work in other branches.
+When your code is ready to commit to svn, make sure that you have included all the files with svn status and then run svn commit.
+Afterwards, checkout the master branch, run git reset --hard HEAD to discard any local changes git is aware of. Find out which was the last synchronized revision with git log --decorate, and update svn to that revision with svn update -r revision. Make sure that svn status returns no changes. After that run import_to_git and rebase any releval local branches to the new master.
