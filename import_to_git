@@ -24,6 +24,8 @@ def svn_checkout(revision):
     subprocess.call(['svn', 'update', '-r', revision])
 
 def git_commit(message, author=None, date=None):
+    if message == "":
+	    message = "No message."
     git_call = ['git', 'commit', '-a', '-m', message]
     if author:
         if '<' not in author:
@@ -49,9 +51,10 @@ def get_latest_local_revision():
     try:
         i = 0
         while True:
-            tags = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD~%i' % i]).strip().split(" ")
-            if len(tags) == 1 and tags[0].startswith('r'):
-                return tags[0]
+            tags = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD~%i' % i]).strip().split()
+            revisions = [int(tag[1:]) for tag in tags if tag.startswith('r') and tag[1:].isdigit()]
+            if revisions:
+                return 'r%d' % max(revisions)
             i += 1
     except:
         pass
